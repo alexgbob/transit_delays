@@ -1,5 +1,11 @@
 <!DOCTYPE html>
+<head>
 <meta charset="utf-8">
+<title>Delay Streamplot</title>
+</head>
+<body>
+<h1> MBTA Delay Streamplot </h1>
+</body>
 <style>
 
 body {
@@ -11,7 +17,7 @@ body {
 }
 
 p {
-  font: 12px helvetica;
+  font: 16px helvetica;
 }
 
 
@@ -59,7 +65,7 @@ strokecolor = colorrange[0];
 
 var format = d3.time.format("%m/%d/%y %H:%M");
 
-var margin = {top: 20, right: 40, bottom: 30, left: 30};
+var margin = {top: 20, right: 40, bottom: 30, left: 40};
 var width = document.body.clientWidth - margin.left - margin.right;
 var height = 600 - margin.top - margin.bottom;
 
@@ -146,6 +152,11 @@ var graph = d3.csv(csvpath, function(data) {
       .attr("class", "y axis")
       .call(yAxis.orient("left"));
 
+  svg.append("g")
+    .attr("class", "y axis")
+      .attr("transform", "translate("+margin+",0)")
+      .call(yAxis);
+
   svg.selectAll(".layer")
     .attr("opacity", 1)
     .on("mouseover", function(d, i) {
@@ -207,6 +218,18 @@ var graph = d3.csv(csvpath, function(data) {
          mousex = d3.mouse(this);
          mousex = mousex[0] + 5;
          vertical.style("left", mousex + "px")});
+
+   svg.append("g")
+     .attr("class", "y axis")
+     .call(yAxis)
+   .append("text")
+     .attr("transform", "rotate(-90)")
+     .attr("y", -40)
+     .attr("dy", ".71em")
+     .style("text-anchor", "end")
+     .style("fill", "#000000")
+     .text("Transit time as percent of benchmark time ----------------------------------------------->");
+
 });
 }
 </script>

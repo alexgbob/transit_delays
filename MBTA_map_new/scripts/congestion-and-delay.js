@@ -26,6 +26,8 @@
 
 VIZ.requiresData([
   'json!data/delay.json',
+  'json!data/pct_bench.json',
+  'csv!data/map_data_morning.csv',
   'json!data/our_mbta_network.json',
   'json!data/our_spider.json',
   'json!data/average-actual-delays.json'
@@ -35,7 +37,7 @@ VIZ.requiresData([
 }).onerror(function () {
   "use strict";
   d3.select(".interaction-all .loading").text('Error loading delay data').style('text-align', 'center');
-}).done(function (delay, network, spider, averageActualDelays) {
+}).done(function (delay, p_bench, delay2, network, spider, averageActualDelays) {
   "use strict";
   d3.select(".interaction-all .loading").remove();
 
@@ -251,7 +253,7 @@ VIZ.requiresData([
     timeHoverBar.attr('transform', 'translate(' + (x+chartMargin.left) + ',' + y + ')');
     timeDisplay.text(moment(theTime).utc().format('h:mm a'));
     var fullTime = moment(theTime).utc().format('h:mm a') + ' on ' + moment.weekdaysShort()[day] + ' Feb ' + (day ? day + 2 : 9);
-    timeDisplayBelowMapGlyph.text(fullTime);
+    timeDisplayBelowMapGlyph.text("Thursday, December 28, 2017 8:29-8:44 AM");
     d3.select('.interaction-all .time').text(fullTime);
     var inputData = byDay[day];
     delays = {};
@@ -259,7 +261,7 @@ VIZ.requiresData([
     var ratio = ((theTime-1) % bucketSize) / bucketSize;
     var before = inputData[idx] || inputData[idx+1];
     var after = inputData[idx+1] || before;
-    entrances = d3.interpolate(before.ins, after.ins)(ratio);
+    // entrances = d3.interpolate(before.ins, after.ins)(ratio);
     turnstileEntryText.text(d3.format('0f')(d3.interpolate(before.ins_total, after.ins_total)(ratio)) + " entries/min");
     var delay = d3.interpolate(before.delay_actual, after.delay_actual)(ratio);
     if (delay < 0) {
@@ -273,10 +275,11 @@ VIZ.requiresData([
 
     function updateCachedDelayForSegment(FROM, TO) {
       var key = FROM + "|" + TO;
-      if (trainDataMerged.hasOwnProperty(key)) {
+      if (p_bench.hasOwnProperty(key)) {
         var diff = trainDataMerged[key];
         var median = averageActualDelays[key];
-        var speed = median / diff;
+        // var speed = median / diff;
+        var speed = p_bench[key];
         delays[key] = speed;
       }
     }
@@ -304,8 +307,8 @@ VIZ.requiresData([
     .defined(function (d) { return !!d; })
     .interpolate("linear");
   var glyphMargin = {top: 20,right: 20, bottom: 25,left: 20};
-  var glyphOuterHeight = 300;
-  var glyphOuterWidth = 300;
+  var glyphOuterHeight = 600;
+  var glyphOuterWidth = 600;
   var glyphWidth = glyphOuterWidth - glyphMargin.left - glyphMargin.right,
       glyphHeight = glyphOuterHeight - glyphMargin.top - glyphMargin.bottom;
 
@@ -332,14 +335,14 @@ VIZ.requiresData([
 
   var redGreenDelayColorScale = d3.scale.linear()
       .interpolate(d3.interpolateLab)
-      .domain([2, 1, 0.3])
+      .domain([0, 0.6, 1.5])
       .range(['rgb(0, 104, 55)', 'rgb(255, 255, 255)', 'rgb(165, 0, 38)']);
 
   function mapGlyphSegmentColor(d) {
     var speed = delays[d.ids];
     var color;
     if (speed === null || typeof speed === 'undefined') {
-      color = 'white';
+      color = 'lightgrey';
     } else {
       color = redGreenDelayColorScale(speed);
     }
@@ -352,7 +355,7 @@ VIZ.requiresData([
   var tip = d3.tip()
       .attr('class', 'd3-tip')
       .offset([-10, 0])
-      .html(function(d) { return d.name; });
+      .html(function(d) { return d.name + " : " + d3.format(".0%")(p_bench[d.ids]); });
   glyph.call(tip);
 
   var glyphSegmentOutlines = glyph.selectAll('.connect')
@@ -405,97 +408,98 @@ VIZ.requiresData([
   drawLineEndDot('place-bomnl', "#2F5DA6");
   drawLineEndDot('place-forhl', "#E87200");
   drawLineEndDot('place-ogmnl', "#E87200");
-  drawLineEndDot('place-clmnl', "#E87200");
-  drawLineEndDot('place-lake', "#E87200");
-  drawLineEndDot('place-hsmnl', "#E87200");
-  drawLineEndDot('place-river', "#E87200");
+  drawLineEndDot('place-clmnl', "#11773C");
+  drawLineEndDot('place-lake', "#11773C");
+  drawLineEndDot('place-hsmnl', "#11773C");
+  drawLineEndDot('place-river', "#11773C");
+  drawLineEndDot('place-lech', "#11773C");
 
 
 
 
 
-  /* 4. Render the line-width key for the map glyph
-   *************************************************************/
-  (function drawMapKey() {
-    var margin = {top: 5, right: glyphMargin.right, bottom: 10, left: glyphMargin.left};
-    var width = 300 - margin.left - margin.right;
-    var mapKeySvg = d3.selectAll('.interaction-all .left .key').append('svg')
-      .attr('width', 300)
-      .attr('height', 60)
-    .append('g')
-      .attr('class', 'dimmable breathing-glyph')
-      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
-    var text = mapKeySvg.append('text')
-      .attr('x', width / 2)
-      .attr('y', 10)
-      .attr('text-anchor', 'middle');
-    text.text('Line width shows turnstile entries at a station');
-    var sizes = [0, 50, 100];
-    var xScale = d3.scale.ordinal()
-        .domain(sizes)
-        .range([33, 77, 130]);
-    var connect = mapKeySvg.selectAll('.path')
-        .data(sizes)
-        .enter()
-      .append('g')
-        .attr('class', 'path connect')
-        .attr('transform', function (d) { return 'translate(' + (xScale(d) - distScale(d) - 4) + ',' + 28 + ')'; });
-
-    // draw fill for key shapes
-    connect.append('path')
-        .datum(function (d) {
-          return [
-            [-distScale(d), 0],
-            [-distScale(d) * 0.75, 10],
-            [distScale(d) * 0.75, 10],
-            [distScale(d), 0],
-            [distScale(d) * 0.75, -10],
-            [-distScale(d) * 0.75, -10],
-            [-distScale(d), 0]
-          ];
-        })
-        .style('stroke', 'none')
-        .style('fill', delayMapColorScale(-0.01))
-        .attr('d', encodeSvgLine);
-
-    // draw outlines for key shapes
-    connect.append('path')
-        .datum(function (d) {
-          return [
-            [-distScale(d), 0],
-            [-distScale(d) * 0.75, 10],
-            null,
-            [distScale(d) * 0.75, 10],
-            [distScale(d), 0],
-            [distScale(d) * 0.75, -10],
-            null,
-            [-distScale(d) * 0.75, -10],
-            [-distScale(d), 0],
-            null,
-            [-distScale(d), 0],
-            [distScale(d), 0],
-            null,
-            [0, 10],
-            [0, -10]
-          ];
-        })
-        .style('stroke', 'black')
-        .style('fill', 'none')
-        .attr('d', encodeSvgLine);
-    mapKeySvg.selectAll('text.num')
-        .data(sizes)
-        .enter()
-      .append('text')
-        .attr('class', 'num')
-        .text(d3.format(',.0f'))
-        .attr('x', function (d) { return xScale(d); })
-        .attr('y', 32);
-    mapKeySvg.append('text')
-        .attr('text-anchor', 'start')
-        .attr('x', xScale(_.last(sizes)) + 20)
-        .attr('y', 32)
-        .text('people per minute');
-  }());
+  // /* 4. Render the line-width key for the map glyph
+  //  *************************************************************/
+  // (function drawMapKey() {
+  //   var margin = {top: 5, right: glyphMargin.right, bottom: 10, left: glyphMargin.left};
+  //   var width = 300 - margin.left - margin.right;
+  //   var mapKeySvg = d3.selectAll('.interaction-all .left .key').append('svg')
+  //     .attr('width', 300)
+  //     .attr('height', 60)
+  //   .append('g')
+  //     .attr('class', 'dimmable breathing-glyph')
+  //     .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+  //   var text = mapKeySvg.append('text')
+  //     .attr('x', width / 2)
+  //     .attr('y', 10)
+  //     .attr('text-anchor', 'middle');
+  //   text.text('Line width shows turnstile entries at a station');
+  //   var sizes = [0, 50, 100];
+  //   var xScale = d3.scale.ordinal()
+  //       .domain(sizes)
+  //       .range([33, 77, 130]);
+  //   var connect = mapKeySvg.selectAll('.path')
+  //       .data(sizes)
+  //       .enter()
+  //     .append('g')
+  //       .attr('class', 'path connect')
+  //       .attr('transform', function (d) { return 'translate(' + (xScale(d) - distScale(d) - 4) + ',' + 28 + ')'; });
+  //
+  //   // draw fill for key shapes
+  //   connect.append('path')
+  //       .datum(function (d) {
+  //         return [
+  //           [-distScale(d), 0],
+  //           [-distScale(d) * 0.75, 10],
+  //           [distScale(d) * 0.75, 10],
+  //           [distScale(d), 0],
+  //           [distScale(d) * 0.75, -10],
+  //           [-distScale(d) * 0.75, -10],
+  //           [-distScale(d), 0]
+  //         ];
+  //       })
+  //       .style('stroke', 'none')
+  //       .style('fill', delayMapColorScale(-0.01))
+  //       .attr('d', encodeSvgLine);
+  //
+  //   // draw outlines for key shapes
+  //   connect.append('path')
+  //       .datum(function (d) {
+  //         return [
+  //           [-distScale(d), 0],
+  //           [-distScale(d) * 0.75, 10],
+  //           null,
+  //           [distScale(d) * 0.75, 10],
+  //           [distScale(d), 0],
+  //           [distScale(d) * 0.75, -10],
+  //           null,
+  //           [-distScale(d) * 0.75, -10],
+  //           [-distScale(d), 0],
+  //           null,
+  //           [-distScale(d), 0],
+  //           [distScale(d), 0],
+  //           null,
+  //           [0, 10],
+  //           [0, -10]
+  //         ];
+  //       })
+  //       .style('stroke', 'black')
+  //       .style('fill', 'none')
+  //       .attr('d', encodeSvgLine);
+  //   mapKeySvg.selectAll('text.num')
+  //       .data(sizes)
+  //       .enter()
+  //     .append('text')
+  //       .attr('class', 'num')
+  //       .text(d3.format(',.0f'))
+  //       .attr('x', function (d) { return xScale(d); })
+  //       .attr('y', 32);
+  //   mapKeySvg.append('text')
+  //       .attr('text-anchor', 'start')
+  //       .attr('x', xScale(_.last(sizes)) + 20)
+  //       .attr('y', 32)
+  //       .text('people per minute');
+  // }());
 
 
 
@@ -506,7 +510,7 @@ VIZ.requiresData([
   (function drawColorKey() {
     var bandWidth = 150;
 
-    var colorKeyContainer = chart
+    var colorKeyContainer = glyph
       .append('g')
       .attr('class', 'dimmable delay-rect key');
 
@@ -514,7 +518,7 @@ VIZ.requiresData([
         .attr('text-anchor', 'middle')
         .attr('y', 6)
         .text('Color shows delay');
-    colorKeyContainer.attr('transform', 'translate(' + (chartWidth * 0.15 + chartMargin.left) + ',' + (chartHeight+20) + ')');
+    colorKeyContainer.attr('transform', 'translate(' + (glyphWidth * 0.15 + glyphMargin.right) + ',' + (glyphHeight - 80) + ')');
 
     var xScale = d3.scale.linear()
         .domain(d3.extent(delayMapColorScale.domain()))
@@ -535,7 +539,7 @@ VIZ.requiresData([
       .tickFormat(function (n) {
         var pct = d3.format('.0%')(n);
         var npct = d3.format('.0%')(-n);
-        return n < 0 ? (npct + " faster") : n > 0 ? (pct + " slower") : "on time";
+        return n < 0 ? (" faster") : n > 0 ? (" slower") : "";
       })
       .tickValues([d3.min(delayMapColorScale.domain()), 0, d3.max(delayMapColorScale.domain())])
       .tickSize(4);
@@ -548,7 +552,7 @@ VIZ.requiresData([
         .attr('text-anchor', 'start')
         .attr('x', bandWidth + 30)
         .attr('dy', 15)
-        .text('than normal');
+        .text('');
   }());
 
 
